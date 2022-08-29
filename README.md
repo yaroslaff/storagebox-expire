@@ -52,3 +52,10 @@ DELETE /home/daily/liste-2022-07-24.tar.gz
 
 ...
 ~~~
+
+## Cron
+`/etc/cron.d/storagebox`:
+~~~
+5  8 * * * root /usr/local/bin/storagebox-expire.py uNNNNNN.your-storagebox.de -p 23 -u uNNNNNN --mkmonthly
+10 8 * * * root /usr/local/bin/storagebox-expire.py uNNNNNN.your-storagebox.de -p 23 -u uNNNNNN --expire 30
+~~~
