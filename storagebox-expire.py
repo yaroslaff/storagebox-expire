@@ -178,7 +178,7 @@ def mkmonthly(client):
     copied = 0
 
     for name in daily.all_names():
-        if monthly.older(name, 40):
+        if monthly.older(name, 30):
             src = os.path.join(args.daily, daily.latest(name).filename)
             dst = args.monthly
             print("UPDATE", src, dst)
