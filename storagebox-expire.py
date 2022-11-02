@@ -123,6 +123,9 @@ def read_directories(client):
 
 def parse_filename(filename):
     m = re.match(args.re, filename)
+    if m is None:
+        print(f"Cannot parse filename {filename!r} against regex {args.re!r}")
+    assert(m)
     dt = datetime.datetime(int(m.group('year')), int(m.group('month')), int(m.group('day')))
 
     return BackupFile(filename, m.group('name'), dt)
