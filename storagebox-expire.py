@@ -218,11 +218,11 @@ def main():
 
     args = get_args()
 
-    log.debug(args)
-
     if not args.verbose:
         log.remove()
         log.add(sys.stderr, level="INFO")        
+
+    log.debug(args)
 
     client = paramiko.client.SSHClient()
     client.load_system_host_keys()
