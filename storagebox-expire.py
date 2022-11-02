@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import datetime
+import socket
 from loguru import logger as log
 
 import warnings
@@ -72,7 +73,13 @@ def get_args():
     def_daily = '/home/daily'
     def_monthly = '/home/monthly'
     def_key = os.path.join(os.path.expanduser('~'), ".ssh", "id_ed25519")
-    def_re = '(?P<name>.+)-(?P<year>\d+)-(?P<month>\d+)-(?P<day>\d+).tar.gz'
+    def_re = [
+        # machine-name-2022-09-28.tar.gz
+        '(?P<name>.+)-(?P<year>\d+)-(?P<month>\d+)-(?P<day>\d+)\.tar\.gz', 
+
+        # machine-name-all-mysql-databases.20221029.sql.gz
+        '(?P<name>.+)\.(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})\.(.*)\.gz'
+        ]
 
 
     parser = argparse.ArgumentParser(description='Create monthy backups, delete expired backups from remote ssh machine (e.g. hetzner storagebox)')
@@ -92,7 +99,8 @@ def get_args():
     g = parser.add_argument_group('Other storagebox options')
     g.add_argument('--daily', default=def_daily, help='path to daily backups. def: {}'.format(def_daily))
     g.add_argument('--monthly', default=def_monthly, help='path to daily backups. def: {}'.format(def_monthly))
-    g.add_argument('--re', default=def_re, help='Filename parsing regex, def: {}'.format(def_re))
+    g.add_argument('--re', default=def_re, type=list, action='append', help='Filename parsing regex, def: {}'.format(def_re))
+    g.add_argument('-4', dest='ipv4', default=False, action='store_true', help='connect over IPv4 only')
 
     parser.add_argument('-v', '--verbose', default=False, action='store_true')
     return parser.parse_args()
@@ -122,13 +130,14 @@ def read_directories(client):
     return daily, monthly
 
 def parse_filename(filename):
-    m = re.match(args.re, filename)
-    if m is None:
-        print(f"Cannot parse filename {filename!r} against regex {args.re!r}")
-    assert(m)
-    dt = datetime.datetime(int(m.group('year')), int(m.group('month')), int(m.group('day')))
-
-    return BackupFile(filename, m.group('name'), dt)
+    for regex in args.re:
+        log.debug(f"Try regex: {regex}")
+        m = re.match(regex, filename)
+        if m is None:
+            continue
+        dt = datetime.datetime(int(m.group('year')), int(m.group('month')), int(m.group('day')))
+        return BackupFile(filename, m.group('name'), dt)
+    log.warning(f"Cannot parse filename {filename} against all regexes")
 
 def cmd_list(client):
 
@@ -209,13 +218,22 @@ def main():
 
     args = get_args()
 
+    log.debug(args)
+
     if not args.verbose:
         log.remove()
         log.add(sys.stderr, level="INFO")        
 
     client = paramiko.client.SSHClient()
     client.load_system_host_keys()
-    client.connect(args.host, port=args.port, username=args.user, key_filename=args.key)
+    if args.ipv4:
+        log.debug("connect over IPv4")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((args.host, int(args.port)))
+    else:
+        sock = None
+    
+    client.connect(args.host, port=args.port, username=args.user, key_filename=args.key, sock=sock)
     
     print("{} started".format(now.strftime('%Y-%m-%d %H:%M')))
 
